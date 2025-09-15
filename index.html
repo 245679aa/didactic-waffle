@@ -45,7 +45,7 @@
       <button id="btn">获取验证码</button>
     </div>
     <div id="result" class="result muted">等待输入…</div>
-    <div class="small">温馨提示：如果验证码错误请刷新页面然后再获取,如果不行就等一会再发验证码，实在不行再联系客服</div>
+    <div class="small">温馨提示：如果验证码错误请刷新页面然后再获取；仍不行请稍等片刻再发送验证码。</div>
   </div>
 
   <script>
@@ -61,8 +61,7 @@
 
     async function fetchCode(email) {
       const qs = new URLSearchParams({ email });
-      // 如果你部署在子路径或自定义域名，请确保路径正确
-      const url = `/api/code?${qs.toString()}`;
+      const url = `/api/code?${qs.toString()}`; // 确保与你的部署路径一致
       const resp = await fetch(url, { method: "GET" });
       const data = await resp.json().catch(() => ({}));
       return { ok: resp.ok && data?.ok, data };
@@ -79,13 +78,22 @@
       try {
         const { ok, data } = await fetchCode(email);
         if (ok && data?.code) {
+          const subject = data.subject || "(无标题)";
+          const dateBeijing = data.date_beijing || data.date_utc || "";
           show(
-            `邮箱：<b>${data.email}</b><br/>邮件ID：<b>${data.mail_id}</b><br/>验证码： <span class="code">${data.code}</span>`,
+            `邮箱：<b>${data.email}</b><br/>
+             标题：<b>${subject}</b><br/>
+             时间（北京时间）：<b>${dateBeijing}</b><br/>
+             邮件ID：<b>${data.mail_id}</b><br/>
+             验证码： <span class="code">${data.code}</span>`,
             "ok"
           );
         } else {
           const reason = data?.error || "未找到验证码或邮箱没有新邮件";
-          show(`获取失败：${reason}`, "err");
+          const subject = data?.subject ? `<br/>标题：<b>${data.subject}</b>` : "";
+          const dateBeijing = data?.date_beijing || data?.date_utc || "";
+          const timeLine = dateBeijing ? `<br/>时间（北京时间）：<b>${dateBeijing}</b>` : "";
+          show(`获取失败：${reason}${subject}${timeLine}`, "err");
         }
       } catch (e) {
         show("请求异常，请稍后再试。", "err");
