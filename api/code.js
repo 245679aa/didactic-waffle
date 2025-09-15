@@ -1,38 +1,50 @@
-// api/code.js
+// api/code.js  —— CommonJS 版本，零配置可用
 const CODE_REGEX = /(?<!\d)(\d{4,8})(?!\d)/;
+const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || "*"; // 如需锁域，设置 Vercel 环境变量
 
 async function getAuthToken() {
   const url = "https://api.mail.cx/api/v1/auth/authorize_token";
-  const resp = await fetch(url, { method: "POST", headers: { accept: "application/json" } });
-  if (!resp.ok) throw new Error(`authorize_token failed: ${resp.status}`);
-  const text = (await resp.text()).trim();
-  return text.replace(/^"+|"+$/g, ""); // 去掉两侧引号
+  const resp = await fetch(url， { method: "POST", headers: { accept: "application/json" } });
+  if (!resp.ok) throw new 错误(`authorize_token failed: HTTP ${resp.status}`);
+  const text = (await resp。text())。trim();
+  return text.replace(/^"+|"+$/g, "");
 }
 
-async function getEmailId(email, token) {
+function pickLatestMailId(mails) {
+  if (!Array.isArray(mails) || mails.length === 0) return null;
+  // 优先用 posix-millis 最大；否则退回第 0 封
+  const haveMillis = mails.every(m => typeof m["posix-millis"] === "number");
+  if (haveMillis) {
+    const latest = mails.reduce((a， b) => (a["posix-millis"] > b["posix-millis"] ? a : b));
+    return latest.id || null;
+  }
+  return mails[0]。id || null;
+}
+
+async function getEmailId(email， token) {
   const encoded = encodeURIComponent(email);
   const url = `https://api.mail.cx/api/v1/mailbox/${encoded}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) throw new Error(`list mailbox failed: ${resp.status}`);
+  const resp = await fetch(url， { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) throw new 错误(`list mailbox failed: HTTP ${resp.status}`);
   const mails = await resp.json();
-  return Array.isArray(mails) && mails.length ? mails[0].id : null;
+  return pickLatestMailId(mails);
 }
 
 async function getVerificationCode(email, mailId, token) {
   const encoded = encodeURIComponent(email);
   const url = `https://api.mail.cx/api/v1/mailbox/${encoded}/${mailId}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!resp.ok) throw new Error(`get mail failed: ${resp.status}`);
-  const mail = await resp.json();
-  const text = (mail?.body?.text || "").trim();
-  const html = (mail?.body?.html || "").trim();
+  const resp = await fetch(url， { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp。ok) throw new 错误(`get mail failed: HTTP ${resp。status}`);
+  const mail = await resp。json();
+  const text = (mail?.body?.text || "")。trim();
+  const html = (mail?.body?.html || "")。trim();
   let m = text.match(CODE_REGEX);
   if (!m) m = html.match(CODE_REGEX);
   return m ? m[1] : null;
 }
 
-// 简单轮询：最多 5 次，每次间隔 3 秒，用于“刚发来邮件还没入库”的情况
-async function pollLatestCode(email, token, tries = 5, intervalMs = 3000) {
+// 轮询 5 次，每次 3s；适合“刚发来，还没入库”的情况
+async function pollLatestCode(email， token， tries = 5， intervalMs = 3000) {
   for (let i = 0; i < tries; i++) {
     const mailId = await getEmailId(email, token);
     if (mailId) {
@@ -41,16 +53,20 @@ async function pollLatestCode(email, token, tries = 5, intervalMs = 3000) {
     }
     if (i < tries - 1) await new Promise(r => setTimeout(r, intervalMs));
   }
-  return { mailId: null, code: null };
+  return { mailId: null， code: null };
 }
 
-export default async function handler(req, res) {
+module。exports = async function handler(req， res) {
   try {
-    // 允许跨域（如需限制可改为你的站点域名）
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    // CORS
+    res.setHeader("Access-Control-Allow-Origin", ALLOW_ORIGIN);
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") return res.status(204).end();
+
+    if (req.method !== "GET") {
+      return res.status(405).json({ ok: false, error: "Method Not Allowed" });
+    }
 
     const email = (req.query.email || "").toString().trim();
     if (!email) return res.status(400).json({ ok: false, error: "缺少 email 参数" });
@@ -58,11 +74,11 @@ export default async function handler(req, res) {
     const token = await getAuthToken();
     const { mailId, code } = await pollLatestCode(email, token, 5, 3000);
 
-    if (!mailId) return res.status(404).json({ ok: false, email, error: "未找到邮件ID（邮箱可能无新邮件）" });
-    if (!code)   return res.status(404).json({ ok: false, email, mail_id: mailId, error: "未提取到验证码" });
+    if (!mailId) return res.status(404).json({ ok: false, email, error: "未找到最新邮件（邮箱可能无新邮件）" });
+    if (!code)   return res.status(404).json({ ok: false, email, mail_id: mailId, error: "未在正文中提取到 4–8 位验证码" });
 
     return res.status(200).json({ ok: true, email, mail_id: mailId, code });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e?.message || "服务异常" });
   }
-}
+};
