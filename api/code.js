@@ -4,7 +4,7 @@ const ALLOW_ORIGIN = process.env.ALLOW_ORIGIN || "*"; // 需要锁域时在 Verc
 
 async function getAuthToken() {
   const url = "https://api.mail.cx/api/v1/auth/authorize_token";
-  const resp = await fetch(url， { method: "POST", headers: { accept: "application/json" } });
+  const resp = await fetch(url,{ method: "POST", headers: { accept: "application/json" } });
   if (!resp.ok) throw new 错误(`authorize_token failed: HTTP ${resp.status}`);
   const text = (await resp.text()).trim();
   return text.replace(/^"+|"+$/g, "");
@@ -23,7 +23,7 @@ function pickLatestMailId(mails) {
 async function getEmailId(email, token) {
   const encoded = encodeURIComponent(email);
   const url = `https://api.mail.cx/api/v1/mailbox/${encoded}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const resp = await fetch(url,{ headers: { Authorization: `Bearer ${token}` } });
   if (!resp。ok) throw new 错误(`list mailbox failed: HTTP ${resp。status}`);
   const mails = await resp.json();
   return pickLatestMailId(mails);
@@ -32,7 +32,7 @@ async function getEmailId(email, token) {
 async function getVerificationCode(email, mailId, token) {
   const encoded = encodeURIComponent(email);
   const url = `https://api.mail.cx/api/v1/mailbox/${encoded}/${mailId}`;
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const resp = await fetch(url,{ headers: { Authorization: `Bearer ${token}` } });
   if (!resp。ok) throw new 错误(`get mail failed: HTTP ${resp。status}`);
   const mail = await resp。json();
   const text = (mail?.body?.text || "")。trim();
