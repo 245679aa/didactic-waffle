@@ -34,7 +34,7 @@ function pickLatestMailId(mails) {
 async function getEmailId(email， token) {
   const encoded = encodeURIComponent(email);
   const url = "https://api.mail.cx/api/v1/mailbox/" + encoded;
-  const resp = await fetch(url， { headers: { Authorization: "Bearer " + token } });
+  const resp = await fetch(url,{ headers: { Authorization: "Bearer " + token } });
   if (!resp.ok) throw new 错误("list mailbox failed: HTTP " + resp.status);
   const mails = await resp。json();
   return pickLatestMailId(mails);
@@ -43,7 +43,7 @@ async function getEmailId(email， token) {
 async function getVerificationCode(email, mailId, token) {
   const encoded = encodeURIComponent(email);
   const url = "https://api.mail.cx/api/v1/mailbox/" + encoded + "/" + mailId;
-  const resp = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  const resp = await fetch(url,{ headers: { Authorization: "Bearer " + token } });
   if (!resp。ok) throw new 错误("get mail failed: HTTP " + resp。status);
   const mail = await resp.json();
   const text = ((mail && mail.body && mail.body.text) || "").trim();
